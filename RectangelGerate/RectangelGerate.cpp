@@ -24,65 +24,81 @@ int random(int upLim = 100, int downLim = 0)
         return 1 + rand() % (upLim - downLim) + downLim;
 }
 
-void bacgroundGenerate(cv::Mat inOutput,int &outObjectColor, double const NSR, double SKO, int const medium=100, bool isPositivCantrast=false, bool noiseON =true)
+void bacgroundGenerate(cv::Mat &inOutput,int *outObjectColor, double const NSR, double SKO, int const *medium, bool *isPositivCantrast, bool noiseON =true)
 { 
     if (SKO <= 0)
     {
         SKO = 1;
         noiseON = false;
     }
+    int chanels{ inOutput.channels() };
+
     static std::random_device rd;
     static std::mt19937 gen(rd());
-    std::normal_distribution<float> dist(medium, SKO);
-    int overflow{ 0 };
-    if (medium * NSR  >= 255)
+    std::vector<std::normal_distribution<float>> dist{};
+    if (chanels > 1)
     {
-        overflow=1;
-    }
-    if (medium / NSR  <= 0)
-    {
-        overflow += 10;
-    } 
-    if (overflow == 0)
-    {
-        if (isPositivCantrast)
-        {
-            outObjectColor = medium * NSR;
-        }
-        else
-        {
-            outObjectColor = medium / NSR;
-        }
-    }
-    else if (overflow == 1)
-    {
-        outObjectColor = medium / NSR;
-    }
-    else if (overflow == 10)
-    {
-        outObjectColor = medium * NSR;
+        dist.push_back(std::normal_distribution<float>(*medium, SKO));
+        dist.push_back(std::normal_distribution<float>(*(medium + 1), SKO));
+        dist.push_back(std::normal_distribution<float>(*(medium + 2), SKO));
     }
     else
     {
-        if (isPositivCantrast)
+        dist.push_back(std::normal_distribution<float>(*medium, SKO));
+    }
+
+    int overflow{ 0 };
+    for (size_t i{ 0 }; i < chanels; ++i)
+    {
+        if (*(medium+i) * NSR >= 255)
         {
-            outObjectColor = 255;
+            overflow = 1;
+        }
+        if (*(medium+i) / NSR <= 0)
+        {
+            overflow += 10;
+        }
+        if (overflow == 0)
+        {
+            if (isPositivCantrast)
+            {
+                *(outObjectColor + i) = *(medium + i) * NSR;
+            }
+            else
+            {
+                *(outObjectColor + i) = *(medium + i) / NSR;
+            }
+        }
+        else if (overflow == 1)
+        {
+            *(outObjectColor + i) = *(medium + i) / NSR;
+        }
+        else if (overflow == 10)
+        {
+            *(outObjectColor + i) = *(medium + i) * NSR;
         }
         else
         {
-            outObjectColor = 0;
+            if (isPositivCantrast)
+            {
+                *(outObjectColor + i) = 255;
+            }
+            else
+            {
+                *(outObjectColor + i) = 0;
+            }
         }
     }
 
-    for (size_t x{ 0 }; x < inOutput.channels(); ++x)
+    for (size_t x{ 0 }; x < chanels; ++x)
     {
-        for (int i{ 0 }; i < inOutput.rows; ++i)
+        for (size_t i{ 0 }; i < inOutput.rows; ++i)
         {
-            for (size_t j{}; j < inOutput.cols; ++j)
+            for (size_t j{ 0 }; j < inOutput.cols; ++j)
             {
                 if (noiseON)
                 {
-                    float val = dist(gen);
+                    float val = dist[x](gen);
                     if (val > 255.0)
                     {
                         val = 255.0;
@@ -97,18 +113,18 @@ void bacgroundGenerate(cv::Mat inOutput,int &outObjectColor, double const NSR, d
                     }
                     else
                     {
-                        inOutput.at<cv::Vec3b>(i, j)[x] = static_cast<unsigned char>(val);
+                        inOutput.at<cv::Vec3b>(i, j)[x] = static_cast<unsigned char>(val);       
                     }
                 }
                 else
                 {
                     if (inOutput.channels() == 1)
                     {
-                        inOutput.at<uchar>(i, j) = static_cast<unsigned char>(medium);
+                        inOutput.at<uchar>(i, j) = static_cast<unsigned char>(*(medium+i));
                     }
                     else
                     {
-                        inOutput.at<cv::Vec3b>(i, j)[x] = static_cast<unsigned char>(medium);
+                        inOutput.at<cv::Vec3b>(i, j)[x] = static_cast<unsigned char>(*(medium+i));
                     }
                 }
             }
@@ -117,19 +133,31 @@ void bacgroundGenerate(cv::Mat inOutput,int &outObjectColor, double const NSR, d
 
 }
 
-cv::Mat objectGenerate(cv::Mat input, double SKO, int const medium = 100, bool noiseON = true)
+cv::Mat objectGenerate(cv::Mat input, double SKO, int const *medium, bool noiseON = true)
 {
     if (SKO <= 0)
     {
         SKO = 1;
         noiseON = false;
     }
+    int chanels{ input.channels() };
+
     static std::random_device rd;
     static std::mt19937 gen(rd());
-    std::normal_distribution<float> dist(medium, SKO);
+    std::vector<std::normal_distribution<float>> dist{};
+    if (chanels > 1)
+    {
+        dist.push_back(std::normal_distribution<float>(*medium, SKO));
+        dist.push_back(std::normal_distribution<float>(*(medium + 1), SKO));
+        dist.push_back(std::normal_distribution<float>(*(medium + 2), SKO));
+    }
+    else
+    {
+        dist.push_back(std::normal_distribution<float>(*medium, SKO));
+    }
 
     cv::Mat buferOjectMat(input.size(), input.type());
-    for (size_t x{ 0 }; x < input.channels(); ++x)
+    for (size_t x{ 0 }; x < chanels; ++x)
     {
         for (int i{ 0 }; i < input.rows; ++i)
         {
@@ -137,7 +165,7 @@ cv::Mat objectGenerate(cv::Mat input, double SKO, int const medium = 100, bool n
             {
                 if (noiseON)
                 {
-                    float val = dist(gen);
+                    float val = dist[x](gen);
                     if (val > 255.0)
                     {
                         val = 255.0;
@@ -159,11 +187,11 @@ cv::Mat objectGenerate(cv::Mat input, double SKO, int const medium = 100, bool n
                 {
                     if (buferOjectMat.channels() == 1)
                     {
-                        buferOjectMat.at<uchar>(i, j) = static_cast<unsigned char>(medium);
+                        buferOjectMat.at<uchar>(i, j) = static_cast<unsigned char>(*(medium+i));
                     }
                     else
                     {
-                        buferOjectMat.at<cv::Vec3b>(i, j)[x] = static_cast<unsigned char>(medium);
+                        buferOjectMat.at<cv::Vec3b>(i, j)[x] = static_cast<unsigned char>(*(medium+1));
                     }
                 }
             }
@@ -180,17 +208,19 @@ int main()
     int N{ 10 };
     int figureType{ 1 }; /// 0 - not figure 1 - square, 2 - circle, 3-triangel 
     bool isColorImg{ false };
+    int colorMedium[3]{ 100,100,100 };
+    bool contarst[3]{ 0,0,0 };
 
     for (; N > 0; --N)
     {
-        int objColorMedium{ 0 };
+        int objColorMedium[3]{ 0,0,0 };
         cv::Mat outputImage(imageSize, imageSize, CV_8UC1);
         if (isColorImg)
         {
-            cv::cvtColor(outputImage, outputImage, CV_8UC3);
+            cv::cvtColor(outputImage, outputImage, cv::COLOR_GRAY2BGR);
         }
         cv::Mat background(outputImage.size(), outputImage.type());
-        bacgroundGenerate(background, objColorMedium, 1.2, 50, 100);
+        bacgroundGenerate(background, objColorMedium, 1.2, 5, colorMedium, contarst);
         if (figureType != 0)
         {
             int sideSize{ random(42,35) };
@@ -243,7 +273,7 @@ int main()
             cv::bitwise_or(imgWithOject, background, outputImage);
         }
        
-        cv::imwrite("train/true/t_" + std::to_string(N) + ".png", outputImage);
+        cv::imwrite("train/true/t_" + std::to_string(N+20) + ".png", outputImage);
         std::cout << N << std::endl;
     }
 }
