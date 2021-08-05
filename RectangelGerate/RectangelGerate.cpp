@@ -3,6 +3,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <iostream>
+#include <fstream>
 #include <random>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -22,6 +23,27 @@ int random(int upLim = 100, int downLim = 0)
         return downLim;
     else
         return 1 + rand() % (upLim - downLim) + downLim;
+}
+
+void findHeigtAndWeigth(cv::Point const *vertices, int const numberPoints, float &heigt, float &width)
+{
+    int minX{ vertices->x };
+    int maxX{ minX };
+    int minY{ vertices->y };
+    int maxY{ minY };
+    for (size_t i{ 1 }; i < numberPoints; ++i)
+    {
+        if (minX > (vertices + i)->x)
+            minX = (vertices + i)->x;
+        if (maxX < (vertices + i)->x)
+            maxX = (vertices + i)->x;
+        if (minY > (vertices + i)->y)
+            minY = (vertices + i)->y;
+        if (maxY < (vertices + i)->y)
+            maxY = (vertices + i)->y;
+    }
+    heigt = maxY - minY;
+    width = maxX - minX;
 }
 
 void bacgroundGenerate(cv::Mat &inOutput,int *outObjectColor, double const NSR, double SKO, int const *medium, bool *isPositivCantrast, bool noiseON =true)
@@ -210,7 +232,9 @@ int main()
     bool isColorImg{ false };
     int colorMedium[3]{ 100,100,100 };
     bool contarst[3]{ 0,0,0 };
+    bool writeCoordinats{ true };
 
+    std::ofstream objectCoordinate("realObjectCoordinate.txt", std::ios_base::out | std::ios_base::trunc);
     for (; N > 0; --N)
     {
         int objColorMedium[3]{ 0,0,0 };
@@ -252,21 +276,34 @@ int main()
                 }
             }
             
+            float width{ 0.0 };
+            float heigth{ 0.0 };
             cv::Mat imgMask(outputImage.size(), outputImage.type(), cv::Scalar(0, 0, 0));
             if (figureType == 1)
             {
                 cv::fillConvexPoly(imgMask, vertices, 4,cv::Scalar(255,255,255), 8);
+                if(writeCoordinats)
+                    findHeigtAndWeigth(vertices, 4, heigth, width);
             }
             else if (figureType == 2)
             {
                 cv::circle(imgMask, centerPoint, sideSize/2, cv::Scalar(1, 1, 1), -1, -1);
+                heigth = sideSize;
+                width = sideSize;
             }
             else if (figureType == 3)
             {
                 cv::fillConvexPoly(imgMask, vertices, 3, cv::Scalar(1, 1, 1), 8);
+                if (writeCoordinats)
+                    findHeigtAndWeigth(vertices, 3, heigth, width);
             }
-            int a;
-            a = 1;
+            
+            if (writeCoordinats)
+            {
+                objectCoordinate << figureType << " " << static_cast<float>(centerPoint.x) / imageSize << " " << static_cast<float>(centerPoint.y) / imageSize << " " <<
+                                    static_cast<float>(heigth) / imageSize << " " << static_cast<float>(width) / imageSize << std::endl;
+            }
+
             cv::Mat imgWithOject(objectGenerate(imgMask, 3, objColorMedium));
             cv::bitwise_not(imgMask, imgMask);
             cv::bitwise_and(background, imgMask, background);
@@ -276,6 +313,7 @@ int main()
         cv::imwrite("train/true/t_" + std::to_string(N+20) + ".png", outputImage);
         std::cout << N << std::endl;
     }
+    objectCoordinate.close();
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
