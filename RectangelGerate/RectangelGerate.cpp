@@ -227,16 +227,17 @@ int main()
 {
     double const pi{ 3.14159 };
     int imageSize{ 416 };
-    int N{ 10 };
+    int N{ 1000 };
+    int offset{ 0 };
     int figureType{ 1 }; /// 0 - not figure 1 - square, 2 - circle, 3-triangel 
     bool isColorImg{ false };
     int colorMedium[3]{ 100,100,100 };
     bool contarst[3]{ 0,0,0 };
     bool writeCoordinats{ true };
-
-    std::ofstream objectCoordinate("realObjectCoordinate.txt", std::ios_base::out | std::ios_base::trunc);
-    for (; N > 0; --N)
+    std::string dirSave{ "train/train/t_" };
+    for (int i{0}; i < N; ++i)
     {
+        std::ofstream objectCoordinate(dirSave + std::to_string(i + offset) + ".txt", std::ios_base::out | std::ios_base::trunc);
         int objColorMedium[3]{ 0,0,0 };
         cv::Mat outputImage(imageSize, imageSize, CV_8UC1);
         if (isColorImg)
@@ -244,10 +245,10 @@ int main()
             cv::cvtColor(outputImage, outputImage, cv::COLOR_GRAY2BGR);
         }
         cv::Mat background(outputImage.size(), outputImage.type());
-        bacgroundGenerate(background, objColorMedium, 1.2, 5, colorMedium, contarst);
+        bacgroundGenerate(background, objColorMedium, 1.5, 5, colorMedium, contarst);
         if (figureType != 0)
         {
-            int sideSize{ random(42,35) };
+            int sideSize{ random(80, 75) };
             int diagonal{ static_cast<int>(pow(2 * sideSize * sideSize,0.5)) };
             int upLimit{ imageSize - diagonal / 2 };
             int downLimit{ diagonal / 2 };
@@ -287,7 +288,7 @@ int main()
             }
             else if (figureType == 2)
             {
-                cv::circle(imgMask, centerPoint, sideSize/2, cv::Scalar(1, 1, 1), -1, -1);
+                cv::circle(imgMask, centerPoint, sideSize/2, cv::Scalar(255, 255, 255), -1, 8);
                 heigth = sideSize;
                 width = sideSize;
             }
@@ -300,8 +301,9 @@ int main()
             
             if (writeCoordinats)
             {
-                objectCoordinate << figureType << " " << static_cast<float>(centerPoint.x) / imageSize << " " << static_cast<float>(centerPoint.y) / imageSize << " " <<
-                                    static_cast<float>(heigth) / imageSize << " " << static_cast<float>(width) / imageSize << std::endl;
+                objectCoordinate << figureType - 1 << " " << static_cast<float>(centerPoint.x) << " " << static_cast<float>(centerPoint.y) << " " <<
+                                    static_cast<float>(heigth) << " " << static_cast<float>(width) << std::endl;
+                objectCoordinate.close();
             }
 
             cv::Mat imgWithOject(objectGenerate(imgMask, 3, objColorMedium));
@@ -310,10 +312,10 @@ int main()
             cv::bitwise_or(imgWithOject, background, outputImage);
         }
        
-        cv::imwrite("train/true/t_" + std::to_string(N+20) + ".png", outputImage);
-        std::cout << N << std::endl;
+        cv::imwrite(dirSave + std::to_string(i + offset) + ".jpg", outputImage);
+        std::cout << i + offset << std::endl;
     }
-    objectCoordinate.close();
+    
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
